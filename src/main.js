@@ -1,13 +1,32 @@
-import { createPdf } from './pdf.js';
-import { generateFakeOrder } from './faker.js';
+const net = require('net');
 
-export default async ({ res, log }) => {
-  const fakeOrder = generateFakeOrder();
-  log(`Generated fake order: ${JSON.stringify(fakeOrder, null, 2)}`);
+const smtpHost = '185.151.28.67';
+const smtpPort = 25;
 
-  const pdfBuffer = await createPdf(fakeOrder);
-  log('PDF created.');
+const socket = net.createConnection(smtpPort, smtpHost);
 
-  return res.send(pdfBuffer, 200, { 'Content-Type': 'application/pdf' });
-};
+socket.on('connect', () => {
+  console.log('Connected to SMTP server');
+  
+  // Send an SMTP command after successful connection (e.g., HELO command)
+  socket.write('HELO example.com\r\n');
+});
 
+socket.on('data', (data) => {
+  console.log('Received from SMTP server:');
+  console.log(data.toString()); // Log the response from the SMTP server
+});
+
+socket.on('end', () => {
+  console.log('Connection closed by SMTP server');
+});
+
+socket.on('error', (err) => {
+  console.error('Failed to connect to SMTP server:', err.message);
+});
+
+// Timeout handler in case the connection takes too long to establish
+socket.setTimeout(5000, () => {
+  console.error('Connection timed out');
+  socket.destroy(); // Destroy the socket manually if it times out
+});
