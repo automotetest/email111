@@ -1,3 +1,4 @@
+import { Client } from 'node-appwrite';
 const net = require('net');
 
 const smtpHost = '185.151.28.67';
