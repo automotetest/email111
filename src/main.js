@@ -1,33 +1,61 @@
-import { Client } from 'node-appwrite';
 const net = require('net');
+const { promisify } = require('util');
+const { resolveMx } = require('dns').promises;
+const nodemailer = require('nodemailer');
 
-const smtpHost = '185.151.28.67';
-const smtpPort = 25;
+// Function to perform SMTP handshake and verify email
+async function verifyEmail(email) {
+    // Extract domain from email
+    const domain = email.split('@')[1];
 
-const socket = net.createConnection(smtpPort, smtpHost);
+    try {
+        // Resolve the MX records for the recipient domain
+        const mxRecords = await resolveMx(domain);
+        const mxHostname = mxRecords[0].exchange;
 
-socket.on('connect', () => {
-  console.log('Connected to SMTP server');
-  
-  // Send an SMTP command after successful connection (e.g., HELO command)
-  socket.write('HELO example.com\r\n');
-});
+        // Connect to the SMTP server
+        const client = net.createConnection({ port: 25, host: mxHostname });
 
-socket.on('data', (data) => {
-  console.log('Received from SMTP server:');
-  console.log(data.toString()); // Log the response from the SMTP server
-});
+        client.setEncoding('utf8');
 
-socket.on('end', () => {
-  console.log('Connection closed by SMTP server');
-});
+        client.on('connect', () => {
+            console.log('Connected to SMTP server');
+        });
 
-socket.on('error', (err) => {
-  console.error('Failed to connect to SMTP server:', err.message);
-});
+        client.on('data', async (data) => {
+            console.log(data);
 
-// Timeout handler in case the connection takes too long to establish
-socket.setTimeout(5000, () => {
-  console.error('Connection timed out');
-  socket.destroy(); // Destroy the socket manually if it times out
-});
+            if (data.startsWith('220')) {
+                // Server is ready, send EHLO command
+                client.write(`EHLO mydomain.com\r\n`);
+            } else if (data.startsWith('250')) {
+                // EHLO response received, send MAIL FROM
+                client.write(`MAIL FROM: <me@mydomain.com>\r\n`);
+            } else if (data.startsWith('250')) {
+                // MAIL FROM response received, send RCPT TO
+                client.write(`RCPT TO: <${email}>\r\n`);
+            } else if (data.startsWith('250')) {
+                // RCPT TO response received, email is valid
+                console.log(`Email ${email} exists`);
+                client.end();
+            } else {
+                console.log('Unexpected response from server');
+                client.end();
+            }
+        });
+
+        client.on('end', () => {
+            console.log('Disconnected from SMTP server');
+        });
+
+        client.on('error', (err) => {
+            console.error('Error:', err);
+        });
+    } catch (err) {
+        console.error('Error resolving MX records:', err);
+    }
+}
+
+// Example usage
+const emailToVerify = 'someone@example.com';
+verifyEmail(emailToVerify);
