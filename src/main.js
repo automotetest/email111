@@ -57,5 +57,5 @@ async function verifyEmail(email) {
 }
 
 // Example usage
-const emailToVerify = 'someone@example.com';
+const emailToVerify = 'aaron@automote.io';
 verifyEmail(emailToVerify);
